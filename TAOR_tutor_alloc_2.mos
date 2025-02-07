@@ -1,0 +1,66 @@
+model TutorAllocation
+  options noimplicit
+  uses "mmxprs"
+
+  declarations
+    ! ...
+    Objective:linctr
+  end-declarations
+
+! Constraints
+
+! 1 workshops need a min/exact number of tutors
+sum(i in I) sum(j in J) x(i,j) = N(s) forall(s in S)
+
+! 2 tutors can be assigned to a min and/or max number of workshops/tutoring hours
+l(i) <= sum(j in J) h(j)*t(j)*x(i,j) <= u(i) forall(i in I)
+
+! 3 tutors can be assigned to a max one pre-determined configuration of workshops each course
+L(i) <= sum(j in J) x(i,j) <= U(i)
+
+! 4 tutors are eligible for workshops (have knowledge, skills, academic position, etc)
+forall(i in I, k in K) do 
+	sum(j in Jk(k)) x(i,j) <= 1 
+end-do
+
+! 5 tutors cannot be assigned to two concurrent workshops
+
+
+! 6 tutors cannot be assigned to two subsequent workshops on two different campuses w/o travel time
+
+
+! 7 some assignments are forced by the model
+forall(i in I, j in F(i)) do 
+	x(i,j) = 1 
+end-do
+
+
+! 8 some assignments are forbidden by the model
+forall(i in I, j in Fdash) do 
+	x(i,j) = 0 
+end-do
+
+! 9 binary decision variable
+forall(i in Tutors, j in CourseCo ) do
+	x(i,j) is_binary
+end-do
+
+
+! 10 integer decision variable
+
+
+! 11 non-negative continuous decision variables
+
+
+! 12
+
+
+! 13
+
+
+
+! Objective Function
+
+
+
+end-model
