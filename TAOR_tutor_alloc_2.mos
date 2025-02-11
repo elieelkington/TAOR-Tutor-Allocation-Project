@@ -24,10 +24,18 @@ forall(i in I, k in K) do
 end-do
 
 ! 5 tutors cannot be assigned to two concurrent workshops
-
+forall(i in I, d in D, t in T) do
+    sum(l in {1,2}) sum(j in C(d,t,l)) x(i,j) <= 1
+end-do
 
 ! 6 tutors cannot be assigned to two subsequent workshops on two different campuses w/o travel time
+forall(i in I, d in D, t in T') do
+    sum(j in C(d,t,1)) x(i,j) + sum(j in C(d,t+1,2)) x(i,j) <= 1
+end-do
 
+forall(i in I, d in D, t in T'') do
+    sum(j in C(d,t,2)) x(i,j) + sum(j in C(d,t+2,1)) x(i,j) <= 1
+end-do
 
 ! 7 some assignments are forced by the model
 forall(i in I, j in F(i)) do 
