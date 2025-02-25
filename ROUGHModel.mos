@@ -1,0 +1,38 @@
+model Rough_Draft_TOR
+  options noimplicit
+  uses "mmxprs"
+
+!filename := "DataFILE.txt"
+declarations
+  !Number of available tutors in the semester
+  I: integer
+  !Number of courses scheduled in the semester
+  K: integer
+  !Number of course sections requiring tutors
+  S: integer
+  !Number of course configurations to be assigned to tutors
+  J: integer
+end-declarations
+ 
+initializations from filename
+  I K S J
+end-initializations
+
+declarations
+  ! Set of of available tutors in the semester
+  Tutors = 1..I
+  
+
+end-declarations
+
+  Obj := sum(i in I, j in J)(1/min(m(i),U(i))*x(i,j)
+  
+!Solve the problem
+maximize(Obj)
+
+
+
+  writeln("Begin running model")
+  !.
+  writeln("End running model")
+end-model
