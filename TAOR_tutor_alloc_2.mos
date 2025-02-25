@@ -44,28 +44,35 @@ end-do
 
 
 ! 8 some assignments are forbidden by the model
-forall(i in I, j in Fdash) do 
+forall(i in I, j in F') do 
 	x(i,j) = 0 
 end-do
 
 ! 9 binary decision variable
-forall(i in Tutors, j in CourseCo ) do
+forall(i in Tutors, j in CourseCo) do
 	x(i,j) is_binary
 end-do
 
 
 ! 10 integer decision variable
-
+forall(i in I, d in D, t in T'') do
+    sum(j in C(d,t,2)) x(i,j) + sum(j in C(d,t+2,1)) x(i,j) <= 1
+end-do
 
 ! 11 non-negative continuous decision variables
-
+forall(i in I, j in F(i)) do 
+    x(i,j) = 1 
+end-do
 
 ! 12
-
+forall(i in I, d in D, t in T'') do
+    sum(j in C(d,t,2)) x(i,j) + sum(j in C(d,t+2,1)) x(i,j) <= 1
+end-do
 
 ! 13
-
-
+forall(i in I, j in J) do 
+    x(i,j) is_binary
+end-do
 
 ! Objective Function
 
