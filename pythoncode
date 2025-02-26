@@ -1,0 +1,83 @@
+import pandas as pd
+!pip install pulp
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum
+
+tutor_file = r"C:\Users\akil3\Downloads\Tutor Allocation 2023-24 - Lars 1.xlsx"
+xls = pd.ExcelFile(tutor_file)
+
+#Load and extract the data
+tutors_df = xls.parse('Tutors')
+courses_df = xls.parse('Courses')
+tutors = tutors_df['Staff Name'].tolist()
+courses = courses_df['Course Name'].tolist()
+sections = courses_df['Code'].tolist()
+
+mintutorhours = dict(zip(tutors_df['Staff Name'], tutors_df['S1 Load']))
+maxtutorhours = dict(zip(tutors_df['Staff Name'], tutors_df['S2 Load']))
+courses_required_tutors = dict(zip(courses_df['Course Name'], courses_df['No T Required']))
+courses_hours = dict(zip(courses_df['Course Name'], courses_df['Tutor contact hours for 1 session']))
+forced_assignments = allocation_df[allocation_df['Forced'] == 1][['Tutor', 'Course']].groupby('Tutor')['Course'].apply(list).to_dict()
+forbidden_assignments = allocation_df[allocation_df['Forbidden'] == 1][['Tutor', 'Course']].groupby('Tutor')['Course'].apply(list).to_dict()
+model = LpProblem(name="Tutor-Allocation", sense=LpMaximize)
+
+x = {(i,j): LpVariable(name=f"x_{i}_{j}", cat='Binary') for i in tutors for j in courses} #x_ij = 1 if tutor i is assigned to course j, 0 otherwise
+model += lpSum((1 / min(1, maxtutorhours[i])) * x[i,j] for i in tutors for j in courses), "Maximize Preferences" #Objective function to try to maximize tutor preferences satisfaction
+
+F = {}
+Fprime = {} 
+C = {} #Placeholder for actual schedule data
+T = list(range(1, 19))
+Tprime = T[:-1]  #T without last time slot
+Tdoubleprime = T[:-2]  #T without last two time slots
+#1 Required tutors per section
+for j in courses:
+    model += lpSum(x[i, j] for i in tutors) == courses_required_tutors[j], f"Tutors_Required_{j}"
+
+#2 Tutor hour limits
+for i in tutors:
+    model += mintutorhours[i] <= lpSum(x[i, j] * courses_hours[j] for j in courses) <= maxtutorhours[i], f"Workload_{i}"
+
+#3 Tutor course limits
+for i in tutors:
+    model += 1 <= lpSum(x[i, j] for j in courses) <= 3, f"Course_Limit_{i}"
+
+#4 One configuration per course
+for i in tutors:
+    model += lpSum(x[i, j] for j in courses) <= 1, f"One_Config_Per_Course_{i}"
+
+#5. One tutor per time slot per location
+for i in tutors:
+    for d in range(1, 6): 
+        for t in T:
+            model += lpSum(x[i, j] for loc in [1, 2] for j in C.get((d, t, loc), [])) <= 1, f"Time_Conflict_{i}_{d}_{t}"
+
+#6 Location change constraints (1-hour gap)
+for i in tutors:
+    for d in range(1, 6):
+        for t in Tprime:
+            model += (lpSum(x[i, j] for j in C.get((d, t, 1), [])) + lpSum(x[i, j] for j in C.get((d, t + 1, 2), []))) <= 1, f"Location_1hr_Gap_{i}_{d}_{t}"
+            model += (lpSum(x[i, j] for j in C.get((d, t, 2), [])) + lpSum(x[i, j] for j in C.get((d, t + 1, 1), []))) <= 1, f"Location_1hr_Gap_{i}_{d}_{t}_Reverse"
+
+#7 Location change constraints (2-hour gap)
+for i in tutors:
+    for d in range(1, 6):
+        for t in Tdoubleprime:
+            model += (lpSum(x[i, j] for j in C.get((d, t, 1), [])) + lpSum(x[i, j] for j in C.get((d, t + 2, 2), []))) <= 1, f"Location_2hr_Gap_{i}_{d}_{t}"
+            model += (lpSum(x[i, j] for j in C.get((d, t, 2), [])) + lpSum(x[i, j] for j in C.get((d, t + 2, 1), []))) <= 1, f"Location_2hr_Gap_{i}_{d}_{t}_Reverse"
+
+#8 and 9 Forced and forbidden assignments 
+for i in tutors:
+    for j in F.get(i, []):
+        model += x[i, j] == 1, f"Forced_{i}_{j}"
+    for j in Fprime.get(i, []):
+        model += x[i, j] == 0, f"Forbidden_{i}_{j}"
+
+model.solve()
+allocation = []
+for i in tutors:
+    for j in courses:
+        if x[i,j].varValue == 1:
+            allocation.append((i,j)) #Extract results
+
+allocation_df = pd.DataFrame(allocation, columns=['Tutor', 'Course'])
+allocation_df.to_csv(r"C:\Users\akil3\Downloads\Tutor Allocation 2023-24 - Lars 1.xlsx", index=False)
