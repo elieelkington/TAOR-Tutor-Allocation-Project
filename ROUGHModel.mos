@@ -12,20 +12,104 @@ declarations
   S: integer
   !Number of course configurations to be assigned to tutors
   J: integer
+  !Number of teaching days in the considered semester
+  D: integer
+  !Number of Time slots in each 
+  T: integer
+  !Number of Locations
+  L: integer
 end-declarations
  
-initializations from filename
-  I K S J
+initializations from filename !Waiting for dataset
+  I K S J D T L
 end-initializations
 
 declarations
-  ! Set of of available tutors in the semester
+  ! Set of available tutors in the semester
   Tutors = 1..I
+  !Set of courses scheduled in the semester
+  Courses = 1..K
+  !Set of course sections requiring tutors
+  TutoredCourses = 1..S
+  !Set of courses’ configurations to be assigned to tutors
+  Config = 1..J
+  !Set of teaching days in the considered semester
+  TeachingDays = 1..D
+  !Set of time slots in a teaching day
+  TimeSlots = 1..T
+  !Set TimeSlots without the last time slot
+  TimeSlots1 = 1..(T-1)
+  !Set T without the last two time slots
+  TimeSlots2 = 1..(T-2)
+  !Set of available classrooms
+  Location = 1..L
   
-
+  !Set of possible configurations for course K
+  ConfigsCourse: array(Courses) of real
+  !Set of configurations including section s
+  ConfigsSection: array(Tutored_Courses) of real
+  !Set of preferences for tutor 𝑖 (configurations of preferred courses)
+  Preferences: array(Tutors) of real
+  
+  !Set of configurations active at time slot 𝑡 of day 𝑑 at location 𝑙
+  ConfigSpec: array(TeachingDays, TimeSlots, Location) of real
+  !Set of forced configurations which tutor 𝑖 is forced to tutor
+  ConfigForced: array(Tutors) of real
+  !Set of forbidden configurations that cannot be tutored by tutor  𝑖
+  ConfigBanned: array(Tutors) of real
+  !Min number of tutoring hours per semester for tutor i (Tiny l)
+  HoursMin: array(Tutors) of real
+  !max number of tutoring hours per semester for tutor i (Tiny u)
+  HoursMax: array(Tutors) of real
+  !Min number of allocated courses per semester for tutor i(Max L)
+  CoursesMin: array(Tutors) of real
+  !Max number of allocated courses per semester for tutor i (Max U)
+  CoursesMax: array(Tutors) of real
+  !Total number of tutoring hours per semester for configurations
+  TutorHours: array(Tutors) of real
+  !TMM of course which configuration 𝑗 ∈ 𝐽 belongs to
+  TMM: array(Config) of real
+  !Number of tutors required by each course section s
+  RequiredTutors: array(TutoredCourses) of real
+  !Number of preferences (courses) expressed by tutor 𝑖
+  PreferenceNumber: array(Tutors) of real
+ 
+ 
+ ! binary variables 𝑥𝑖𝑗 that take the value 1 if tutor 𝑖 is assigned to configuration 𝑗, and 0 otherwise
+  x: array(Tutors,Config) of mpvar 
+  
 end-declarations
 
-  Obj := sum(i in I, j in J)(1/min(m(i),U(i))*x(i,j)
+
+
+! 1 workshops need a min/exact number of tutors
+forall(s in TutoredCourses) 
+  sum(i in Tutors) sum(j in Config) x(i,j) = RequiredTutors(s) 
+
+! 2 tutors can be assigned to a min and/or max number of workshops/tutoring hours
+forall(i in Tutors) 
+  HoursMin(i) <= sum(j in Config) TutorHours(j)*TMM(j)*x(i,j) <= HoursMax(i) 
+
+! 3 tutors can be assigned to a max one pre-determined configuration of workshops each course
+forall(i in Tutors) 
+  CoursesMin(i) <= sum(j in Config) x(i,j) <= CoursesMax(i)
+
+forall(i in Tutors, k in ConfigsCourse) 
+  sum(k in ConfigsCourse) x(i,k)<= 1
+
+forall(i in Tutors, d in TeachingDays, t in TimeSlots) 
+  sum(1,2 in Location, j in ConfigSpec) x(i,j) <= 1
+
+forall(i in Tutors, d in TeachingDays, t in TimeSlots1) 
+
+
+forall(i in Tutors, j in ConfigForced)
+  x(i,j) = 1
+  
+forall(i in Tutors, j in ConfigBanned)
+  x(i,j) = 0
+
+Obj := sum(i in Tutors, j in Config)(1/min(m(i),U(i))*x(i,j)
   
 !Solve the problem
 maximize(Obj)
