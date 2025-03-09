@@ -1,0 +1,86 @@
+model TutorScheduling
+
+declarations
+  ! Sets
+  I: range
+  J: range
+  T: range
+  Tdash: range ! T such that all t > 1
+  nbTutors,nbCourses,nbTimeslots : integer
+
+  ! Parameters
+  p: array(I,J) of real ! Preference score for tutor i on course j
+  w: array(J) of real   ! Weekly tutor hours per course
+  m: array(J) of real   ! Multiplier for marking, prep, etc. TMM
+  r: array(j,t) of real ! Number of tutors required for course j at time t
+  L: array(I) of real   ! Min total tutor hours per week
+  U: array(I) of real   ! Max total tutor hours per week
+  l: array(I) of real   ! Min number of courses per tutor
+  u: array(I) of real   ! Max number of courses per tutor
+  a: array(I,T) of real ! Tutor availability (1 if available, 0 otherwise)
+  e: array(J,T) of real ! 1 if workshop exists at time t for course j
+  W: array(J,T) of real ! 1 if timeslot t belongs to the same workshop as t-1
+  M: real               ! number of timeperiods
+
+  ! Decision Variables
+  x: array(I,J) of mpvar      ! 1 if tutor i is assigned to course j at time t
+  xt: array(I,J,T) of mpvar   ! 1 if tutor i is assigned to course j
+
+  ! Objective Function: maximise fairness and prefrences weighting variables
+  alpha: real
+  beta: real
+  lambda: real
+end-declarations
+
+I= 1..nbTutors
+J= 1..nbCourses
+T = 1..nbTimeslots
+Tdash= 2..nbTimeslots
+
+
+! Constraints
+
+! (1) Ensure required number of tutors per workshop slot
+forall(j in J, t in T) do
+    sum(i in I) xt(i,j,t) = r(j,t)
+end-do
+
+! (2) Weekly hour constraints
+forall(i in I) do
+  L(i) <= sum(j in J)(w(j)*m(j)*12*x(i,j))
+  sum(j in J)(w(j)*m(j)*12*x(i,j)) <= U(i)
+end-do
+
+! (3) Prevent tutor switching within a workshop
+forall(i in I, j in J, t in Tdash) do
+  x(i,j,t) - xt(i,j,t-1) <= 1 - W(j,t)
+end-do
+
+! (4) Availability and active workshop constraint
+forall(i in I, j in J, t in T) do
+  M*x(i,j) <= e(j,t)*a(i,t)
+end-do
+
+! (5) Weekly hours per tutor per course
+forall(i in I, j in J) do
+  12 * w(j) = 0.5 * sum(t in T) xt(i,j,t)
+end-do
+
+! (6) Course limits per tutor
+forall(i in I) do
+  l(i) <= sum(j in J) xij(i,j)
+  sum(j in J) xij(i,j) <= u(i)
+end-do
+
+! Solve model
+minimise(sum(i in I, j in J, t in T)(alpha*p(i,j)*xt(i,j,t))-beta*sum(i in I, j in J)(x(i,j))-lambda*(max(i in I)(sum(j in J)x(i,j))-min(i in I)(sum(j in J)(x(i,j)))))
+
+
+! Output solution
+forall(i in I, j in J) do
+    if xij(i,j) then
+        writeln("Tutor ", i, " assigned to Course ", j)
+    end-if
+end-do
+
+end-model
