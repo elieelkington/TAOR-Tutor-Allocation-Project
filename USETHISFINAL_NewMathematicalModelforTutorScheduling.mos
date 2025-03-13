@@ -41,11 +41,11 @@ declarations
   alpha: real
   beta: real
   lambda: real
-  
+
   ! Names
   Tutor_names: array(Tutors) of string
   Course_names: array(Courses) of string
-  
+
 end-declarations
 
 initialisations from "tutordata.txt"
@@ -96,6 +96,11 @@ end-do
 forall(i in Tutors) do
   lc(i) <= sum(j in Courses) x(i,j)
   sum(j in Courses) x(i,j) <= uc(i)
+end-do
+
+! (7) Ensure only assigned to one course at time t 
+forall(i in Tutors, t in Timeslots) do
+  sum(j in Courses)xt(i,j,t) <= 1
 end-do
 
 ! Solve model
