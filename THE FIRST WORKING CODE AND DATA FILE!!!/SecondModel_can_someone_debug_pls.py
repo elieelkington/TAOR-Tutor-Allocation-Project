@@ -10,22 +10,19 @@ def read_csv_data():
     with open("tutordata1.csv", mode='r') as file:
         lines = file.readlines()
         
-        # need tutors courses and timeslots
-        tutors = eval(lines[8].split(':')[1].strip())
-        courses = eval(lines[15].split(':')[1].strip())
-        timeslots = eval(lines[22].split(':')[1].strip())
+        tutors = eval(lines[1].split(':')[1].strip())
+        courses = eval(lines[3].split(':')[1].strip())
+        timeslots = eval(lines[5].split(':')[1].strip())
         
-        max_hours = {tutor: 144 for tutor in tutors}  # Uh 
-
-        # need prefrences:
+        max_hours = {tutor: 144 for tutor in tutors}  # Default to Uh value
+        
+        # Read preferences (p values from tutordata1.csv)
         p_start = next(i for i, line in enumerate(lines) if line.startswith("p:")) + 1
         preferences = {}
         for i, tutor in enumerate(tutors):
             preferences[tutor] = {course: float(val) for course, val in zip(courses, lines[p_start + i].strip().split())}
     
-    
     return tutors, courses, timeslots, max_hours, preferences
-  
 
 def read_assignments():
     """Reads existing assignments from tutor_assignments.csv."""
@@ -43,7 +40,6 @@ def read_assignments():
     
     return assignments
 
-
 def read_availability():
     """Reads availability data from updated_availability.csv."""
     availability = {}
@@ -56,7 +52,6 @@ def read_availability():
             availability[tutor] = {i: int(row[i+1]) for i in range(len(row) - 1)}
     
     return availability
-
 
 def find_replacement_tutor(exited_tutor, assignments, availability, max_hours, preferences):
     """Finds a replacement tutor for an exited tutor."""
@@ -92,7 +87,12 @@ def main():
     assignments = read_assignments()
     availability = read_availability()
     
-    exited_tutor = random.choice(list(assignments.keys()))  # Simulating an exited tutor
+    # Input for the tutor to replace
+    exited_tutor = input("Enter the name of the tutor who exited (or press Enter to randomize): ").strip()
+    if not exited_tutor:
+        exited_tutor = random.choice(list(assignments.keys()))  # Simulating an exited tutor if not provided
+        print(f"No tutor entered. Randomly selected tutor: {exited_tutor}")
+    
     print(f"Tutor {exited_tutor} exited. Finding replacement...")
     
     replacement = find_replacement_tutor(exited_tutor, assignments, availability, max_hours, preferences)
