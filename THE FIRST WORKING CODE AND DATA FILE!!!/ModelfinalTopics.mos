@@ -121,5 +121,33 @@ forall(i in Tutors, j in Courses) do
     end-if
 end-do
 
+! Output assigned tutors to CSV
+
+fopen( "tutor_assignments.csv", F_OUTPUT)
+writeln(f, "Tutor Name, Course Name, Timeslot")
+
+forall(i in Tutors, j in Courses, t in Timeslots) do
+  if getsol(xt(i,j,t)) > 0.5 then
+    writeln(f, Tutor_names(i), ",", Course_names(j), ",", t)
+  end-if
+end-do
+
+fclose(F_OUTPUT)
+
+! Update availability matrix
+fopen( "updated_availability.csv", F_OUTPUT)
+writeln(f, "Tutor Name, Timeslot, Available (1=Yes, 0=No)")
+
+forall(i in Tutors, t in Timeslots) do
+  a(i,t) := 1
+  forall(j in Courses) do
+    if getsol(xt(i,j,t)) > 0.5 then
+      a(i,t) := 0
+    end-if
+  end-do
+  writeln(f, Tutor_names(i), ",", t, ",", a(i,t))
+end-do
+
+fclose(F_OUTPUT)
 
 end-model
