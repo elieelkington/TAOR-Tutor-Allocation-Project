@@ -158,6 +158,7 @@ end-do
 obj_fnct := sum(i in Tutors, j in Courses, t in Timeslots) (xt(i,j,t) * p(i,j))
 obj_fnct2 := wl_max - wl_min
 
+! print runtime
 setparam("XPRS_VERBOSE", 1)
 
 minimise(obj_fnct)
@@ -165,56 +166,64 @@ minimise(obj_fnct)
 
 ! ! ==== Print Statements ==================================
 
-forall(i in Tutors, j in Courses, t in Timeslots) do
-  if getsol( xt(i,j,t)) > 0 then
-    writeln(Tutor_names(i), ' for ', Course_names(j) , ' on ', Timeslot_names(t))
-  end-if
-end-do
+! print fairness difference
+writeln('Fairness Difference:', getsol(obj_fnct2))
 
-forall(i in Tutors) do 
-  writeln(Tutor_names(i), ' is working for ', (1/2)*getsol(sum(t in Timeslots, j in Courses)xt(i,j,t)), 'hours a week')
-end-do
-writeln('Tutors work for a total of ', (1/2)*getsol(sum(t in Timeslots, j in Courses, i in Tutors)xt(i,j,t)), 'hours a week')
+! print preferences
+writeln('Preferences Total:', getsol(obj_fnct))
 
 
-! ! Output assigned tutors to CSV
-
-fopen( "tutor_assignments.csv", F_OUTPUT)
-writeln( "Tutor Name, Course Name, Timeslot")
-
-forall(i in Tutors, j in Courses, t in Timeslots) do
-  if getsol(xt(i,j,t)) > 0.5 then
-    writeln(Tutor_names(i), ",", Course_names(j), ",", t)
-  end-if
-end-do
-
-fclose(F_OUTPUT)
-
-! Update availability matrix
-fopen( "updated_availability.csv", F_OUTPUT)
-writeln("Tutor Name, Timeslot, Available (1=Yes, 0=No)")
-
-forall(i in Tutors, t in Timeslots) do
-  l(i,t) := 1
-  forall(j in Courses) do
-    if getsol(xt(i,j,t)) > 0.5 then
-      l(i,t) := 0
-    end-if
-  end-do
-  writeln( Tutor_names(i), ",", t, ",", l(i,t))
-end-do
-
-fclose(F_OUTPUT)
-
-! Update availability matrix
+! print csv with hours worked a week
 fopen( "each_tutors_hours.csv", F_OUTPUT)
 writeln("Tutor Name, Hours a week")
 
 forall(i in Tutors) do
   writeln( Tutor_names(i), ",", (1/2)*getsol(sum(t in Timeslots, j in Courses)xt(i,j,t)) )
 end-do
-
 fclose(F_OUTPUT)
+
+
+! forall(i in Tutors, j in Courses, t in Timeslots) do
+!   if getsol( xt(i,j,t)) > 0 then
+!     writeln(Tutor_names(i), ' for ', Course_names(j) , ' on ', Timeslot_names(t))
+!   end-if
+! end-do
+
+! forall(i in Tutors) do 
+!   writeln(Tutor_names(i), ' is working for ', (1/2)*getsol(sum(t in Timeslots, j in Courses)xt(i,j,t)), 'hours a week')
+! end-do
+! writeln('Tutors work for a total of ', (1/2)*getsol(sum(t in Timeslots, j in Courses, i in Tutors)xt(i,j,t)), 'hours a week')
+
+
+! ! ! Output assigned tutors to CSV
+
+! fopen( "tutor_assignments.csv", F_OUTPUT)
+! writeln( "Tutor Name, Course Name, Timeslot")
+
+! forall(i in Tutors, j in Courses, t in Timeslots) do
+!   if getsol(xt(i,j,t)) > 0.5 then
+!     writeln(Tutor_names(i), ",", Course_names(j), ",", t)
+!   end-if
+! end-do
+
+! fclose(F_OUTPUT)
+
+! ! Update availability matrix
+! fopen( "updated_availability.csv", F_OUTPUT)
+! writeln("Tutor Name, Timeslot, Available (1=Yes, 0=No)")
+
+! forall(i in Tutors, t in Timeslots) do
+!   l(i,t) := 1
+!   forall(j in Courses) do
+!     if getsol(xt(i,j,t)) > 0.5 then
+!       l(i,t) := 0
+!     end-if
+!   end-do
+!   writeln( Tutor_names(i), ",", t, ",", l(i,t))
+! end-do
+
+! fclose(F_OUTPUT)
+
 
 
 end-model
