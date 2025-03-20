@@ -1,0 +1,229 @@
+model 'Tutor Allocation 2'
+  uses "mmxprs", "mmnl", "mmxnlp"
+
+declarations
+  ! Explicit integers from datafile
+  nbTutors: integer  ! number of tutors
+  nbCourses: integer  ! number of courses w/ workshop in sem 2
+  nbTimeslots: integer  ! number of 30-min times lots in week (Mon-Fri)
+  Lh: integer  ! Min total tutor hours per week
+  Uh: integer  ! Max total tutor hours per week
+  lc: integer  ! Min number of courses per tutor
+  uc: integer  ! Max number of courses per tutor
+end-declarations
+
+initialisations from 'NewData2.txt'
+   nbTutors nbCourses nbTimeslots  ! explicit integers
+   Lh Uh lc uc
+end-initialisations
+
+declarations
+  ! Indexing Sets
+  Tutors = 1.. nbTutors
+  Courses = 1..nbCourses
+  Timeslots = 1..nbTimeslots
+  Tdash = 2..nbTimeslots
+
+  ! Parameters
+  ! p: array(Tutors,Courses) of real ! Preference score for tutor i on course j
+  wth: array(Courses) of real      ! Weekly tutor hours per course
+  tmm: array(Courses) of real      ! Multiplier for marking, prep, etc. TMM
+  r: array(Courses,Timeslots) of real ! Number of tutors required for course j at time t
+  a: array(Tutors,Timeslots) of real  ! Tutor availability (1 if available, 0 otherwise)
+  e: array(Courses,Timeslots) of real ! 1 if workshop exists at time t for course j
+  W: array(Courses,Timeslots) of real ! 1 if timeslot t belongs to the same workshop as t-1
+  lpt: array(Tutors) of integer ! number of preferences per tutor (dont want prefs)
+  ! hpt: array(Tutors) of real ! number of preferences per tutor (high prefs)
+  m: array(Tutors) of integer  ! getting minimum b/t preferences and course max limit
+  p: array(Tutors, Courses) of real
+
+  ! ! ! Names
+  Tutor_names: array(Tutors) of string
+  Course_names: array(Courses) of string
+  Timeslot_names: array(Timeslots) of string
+
+  ! Decision Variables
+  xt: array(Tutors,Courses,Timeslots) of mpvar   ! 1 if tutor i is assigned to course j at time t
+  x: array(Tutors,Courses) of mpvar
+  
+  wl: array(Tutors) of mpvar  ! Workload per tutor
+  wl_max: mpvar  ! Maximum workload
+  wl_min: mpvar  ! Minimum workload
+end-declarations
+
+initializations from 'NewData2.txt'
+  wth tmm r a e W lpt Tutor_names Course_names Timeslot_names p  ! parameters
+end-initializations
+
+! ===== Binary Decision Var =======================================
+
+! 1 if tutor i is assigned to course j at time t
+forall(i in Tutors, j in Courses, t in Timeslots) do
+  xt(i,j,t) is_binary
+end-do
+
+forall(i in Tutors, j in Courses) do
+  x(i,j) is_binary
+end-do
+
+forall(i in Tutors) do
+  wl(i) is_integer
+end-do
+
+! ====== getting workload variable ===========================
+
+! Compute workload for each tutor (sum of assigned courses across time slots)
+forall(i in Tutors) do
+    wl(i) = sum(j in Courses, t in Timeslots) xt(i,j,t)
+end-do
+
+! Define min and max workload
+forall(i in Tutors) do
+    wl_max >= wl(i)
+    wl_min <= wl(i)
+end-do
+
+! forall (i in Tutors) do
+!   ! writeln("lpt(", i, ") = ", lpt(i), ", uc = ", uc)
+!   if lpt(i) > 0 then
+!     if lpt(i) < uc then
+!       m(i) := lpt(i)
+!     else
+!       m(i) := uc
+!     end-if
+!   else
+!     m(i) := 1
+!   end-if
+!   ! writeln("m(", i, ") = ", m(i))
+! end-do
+
+ ! ==== Constraints ======================================
+
+! Required number of tutors in each workshop
+forall( t in Timeslots,j in Courses) do
+  sum(i in Tutors) xt(i,j,t) = r(j,t)
+end-do
+
+! If a tutor is assigned to any workshop at timeslot t for a course, then the tutor is assigned to the course
+forall(j in Courses, i in Tutors) do
+  sum(t in Timeslots)xt(i,j,t) <= nbTimeslots*x(i,j)
+end-do
+
+  
+
+! ! Number of tutor hours per week limitations
+! forall(i in Tutors, j in Courses, t in Timeslots) do
+!   Lh <= ((tmm(j) * wth(j) * xt(i,j,t))*12)
+!   ((tmm(j) * wth(j) * xt(i,j,t))*12) <= Uh
+! end-do
+
+forall(i in Tutors) do
+  Lh <= (1/2)*sum(t in Timeslots, j in Courses)xt(i,j,t)
+  (1/2)*sum(t in Timeslots, j in Courses)xt(i,j,t) <= Uh
+end-do
+
+
+! Number of courses a tutor can be assigned to limitation
+forall(i in Tutors, t in Timeslots) do
+  lc <= (sum(j in Courses)x(i,j))
+  (sum(j in Courses) x(i,j)) <= uc
+end-do
+
+
+! don't double-book tutors for a timeslots
+forall(i in Tutors, t in Timeslots) do
+  sum(j in Courses) xt(i,j,t) <= 1
+end-do
+
+! only assign a tutor to a slot if they are available to work
+forall(i in Tutors, j in Courses, t in Timeslots) do
+  xt(i,j,t) <= e(j,t)*a(i,t)
+end-do
+
+! assign tutor to the whole WS session (not just part)
+forall(i in Tutors, j in Courses, t in Tdash) do
+  xt(i,j,t) - xt(i,j,t-1) <= 1 - W(j,t)
+end-do
+
+! no tutor can work for more than 8 consecutive timeslots (4 hours)
+forall(i in Tutors, j in Courses) do
+    forall(start in 1..(nbTimeslots - 8)) do
+        sum(t in start..start + 7) xt(i, j, t) <= 8
+    end-do
+end-do
+
+! ==== Objective Function and Optimization ==============
+
+
+obj_fnct := sum(i in Tutors, j in Courses, t in Timeslots) (xt(i,j,t) * p(i,j))
+obj_fnct2 := wl_max - wl_min
+
+! print runtime
+setparam("XPRS_VERBOSE", 1)
+
+minimise(obj_fnct2)
+
+
+! ! ==== Print Statements ==================================
+
+! print fairness difference
+writeln('Fairness Difference:', 0.5*getsol(obj_fnct2))
+
+! print preferences
+writeln('Preferences Total:', getsol(obj_fnct))
+
+
+! print csv with hours worked a week
+fopen( "each_tutors_hours_P1_0_P2_1.csv", F_OUTPUT)
+writeln("Tutor Name, Hours a week")
+
+forall(i in Tutors) do
+  writeln( Tutor_names(i), ",", (1/2)*getsol(sum(t in Timeslots, j in Courses)xt(i,j,t)) )
+end-do
+fclose(F_OUTPUT)
+
+
+! forall(i in Tutors, j in Courses, t in Timeslots) do
+!   if getsol( xt(i,j,t)) > 0 then
+!     writeln(Tutor_names(i), ' for ', Course_names(j) , ' on ', Timeslot_names(t))
+!   end-if
+! end-do
+
+! forall(i in Tutors) do 
+!   writeln(Tutor_names(i), ' is working for ', (1/2)*getsol(sum(t in Timeslots, j in Courses)xt(i,j,t)), 'hours a week')
+! end-do
+! writeln('Tutors work for a total of ', (1/2)*getsol(sum(t in Timeslots, j in Courses, i in Tutors)xt(i,j,t)), 'hours a week')
+
+
+! ! ! Output assigned tutors to CSV
+
+! fopen( "tutor_assignments.csv", F_OUTPUT)
+! writeln( "Tutor Name, Course Name, Timeslot")
+
+! forall(i in Tutors, j in Courses, t in Timeslots) do
+!   if getsol(xt(i,j,t)) > 0.5 then
+!     writeln(Tutor_names(i), ",", Course_names(j), ",", t)
+!   end-if
+! end-do
+
+! fclose(F_OUTPUT)
+
+! ! Update availability matrix
+! fopen( "updated_availability.csv", F_OUTPUT)
+! writeln("Tutor Name, Timeslot, Available (1=Yes, 0=No)")
+
+! forall(i in Tutors, t in Timeslots) do
+!   l(i,t) := 1
+!   forall(j in Courses) do
+!     if getsol(xt(i,j,t)) > 0.5 then
+!       l(i,t) := 0
+!     end-if
+!   end-do
+!   writeln( Tutor_names(i), ",", t, ",", l(i,t))
+! end-do
+
+! fclose(F_OUTPUT)
+
+
+
+end-model
